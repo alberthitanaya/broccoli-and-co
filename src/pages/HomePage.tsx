@@ -1,215 +1,212 @@
+import { yupResolver } from '@hookform/resolvers/yup';
 import {
+	Box,
 	Button,
-	GridListTile,
-	GridListTileBar,
-	IconButton,
-	Snackbar,
+	Dialog,
+	DialogActions,
+	DialogContent,
+	DialogTitle,
+	TextField,
+	Typography
 } from "@material-ui/core";
-import GridList from "@material-ui/core/GridList";
-import InputBase from "@material-ui/core/InputBase";
-import { fade, Theme } from "@material-ui/core/styles";
-import InfoIcon from "@material-ui/icons/Info";
-import SearchIcon from "@material-ui/icons/Search";
+import { Theme } from "@material-ui/core/styles";
 import { makeStyles } from "@material-ui/styles";
-import React, { useEffect, useState } from "react";
-import { useActions } from "../actions";
-import * as CartActions from "../actions/cart";
-import { Movie } from "../model";
+import React, { useState } from "react";
+import { Controller, useForm } from "react-hook-form";
+import * as yup from "yup";
+interface HomePageProps {
+    postInvite: (data: InvitePostRequest) => any;
+}
 
-export function HomePage() {
+interface InvitePostRequest {
+	name: string;
+	email: string;
+}
+
+interface InviteFormData {
+	fullname: string;
+	email: string;
+	emailConfirmation: string;
+}
+
+const schema = yup.object().shape({
+	fullname: yup.string().required('Full name is required').min(3, 'Minimum 3 characters'),
+	email: yup.string().email().required('Email is required'),
+	emailConfirmation: yup.string().oneOf([yup.ref('email'), null], 'Emails must match'),
+  });
+
+export const HomePage = ({
+	postInvite
+}: HomePageProps) => {
 	const classes = useStyles();
-	const [searchTerm, setSearchTerm] = useState("");
-	const [movieResults, setMovieResults] = useState([]);
-	const [selectedMovies, setSelectedMovies] = useState<any>({});
-	const cartActions = useActions(CartActions);
-
-	const handleClose = () => {};
-	const fetchMovies = async () => {
-		const results = await fetch(
-			`https://www.omdbapi.com/?apikey=36bc2c5&s=${encodeURI(
-				searchTerm
-			)}`,
-			{
-				method: "GET",
-			}
-		);
-		const jsonResults = await results.json();
-		setMovieResults(jsonResults.Search);
+	const [open, setOpen] = useState(false);
+	const [serverError, setServerError] = useState('');
+	const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+	const { control, handleSubmit, formState:{ errors }, reset } = useForm({
+		resolver: yupResolver(schema)
+	  });
+	const handleClose = () => {
+		setOpen(false);
+		resetForm();
+		setShowSuccessMessage(false);
+		setServerError('');
 	};
-
-	useEffect(() => {
-		fetchMovies();
-	}, [searchTerm]);
-
-	let selectedMovieCount = 0;
-	Object.keys(selectedMovies).forEach((movie: any) => {
-		if (selectedMovies[movie] !== undefined) {
-			selectedMovieCount += 1;
+	const onSubmit = async (data: InviteFormData) => {
+		const responseJson = await postInvite({
+			name: data.fullname,
+			email: data.email,
+		});
+		if (responseJson === 'Registered') {
+			resetForm();
+			setShowSuccessMessage(true);
+		} else if (responseJson?.errorMessage) {
+			setServerError(responseJson.errorMessage);
 		}
-	});
-
-	return (
+	};
+	const resetForm = () => {
+		reset({
+			fullname: '',
+			email: '',
+			emailConfirmation: '',
+		});
+	}
+    return (
+        <form>
 		<div className={classes.root}>
-			<div className={classes.search}>
-				<div className={classes.searchIcon}>
-					<SearchIcon />
-				</div>
-				<InputBase
-					placeholder="Type to start searching…"
-					classes={{
-						root: classes.inputRoot,
-						input: classes.inputInput,
-					}}
-					onChange={(event) => {
-						setSearchTerm(event.currentTarget.value);
-					}}
-					inputProps={{ "aria-label": "search" }}
-				/>
+			<div className={classes.video}>
 			</div>
-			<GridList
-				cellHeight={300}
-				spacing={30}
-				className={classes.gridList}
-			>
-				{!!movieResults &&
-					movieResults.map((tile: any) => (
-						<GridListTile
-							key={tile.imdbID}
-							className={
-								selectedMovies[tile.imdbID] === undefined
-									? classes.imageContainer
-									: classes.selectedImageContainer
-							}
-							onClick={() => {
-								if (selectedMovies[tile.imdbID]) {
-									setSelectedMovies({
-										...selectedMovies,
-										[tile.imdbID]: undefined,
-									});
-								} else {
-									setSelectedMovies({
-										...selectedMovies,
-										[tile.imdbID]: tile,
-									});
-								}
-							}}
-						>
-							<img
-								className={classes.selectedGrid}
-								src={tile.Poster}
-								alt={tile.Title}
-							/>
+			<div className={classes.body}>
+			<div className={classes.title}>
+			<Typography component="div" variant="h4" >
+				<Box fontWeight={500} m={1}>
+				A better way to enjoy every day.
+				</Box>
+			</Typography>
+			</div>
+			<div className={classes.title}>
+			<Typography variant="h6" >
+				Be the first to know when we launch.
+			</Typography>
+			</div>
+			<div className={classes.inviteButton}>
+				<Button data-testid="request-an-invite" variant="contained" color="primary" onClick={() => setOpen(true)}>
+					Request an invite
+				</Button>
+			</div>
+			</div>
+			<Dialog open={open} onClose={handleClose} aria-labelledby="form-dialog-title">
+				{!showSuccessMessage && (
+				<>
+				<DialogTitle data-testid="invite-title" id="form-dialog-title">Request an invite</DialogTitle>
+				<DialogContent>
+				<Controller
+						name="fullname"
+						control={control}
+						defaultValue=""
+						render={({ field }) => <TextField
+						{...field}
+						margin="dense"
+						data-testid="name"
+						placeholder="e.g. John Smith"
+						id="name"
+						label="Full Name"
+						type="text"
+						fullWidth
+					/>}
+				/>
+				<Typography variant="caption" color="error">{errors.fullname?.message}</Typography>
+				<Controller
+					name="email"
+					control={control}
+					render={({ field }) => <TextField
+					{...field}
+					margin="dense"
+					data-testid="email"
+					placeholder="e.g. broccoli@xyz.com"
+					id="name"
+					label="Email Address"
+					type="email"
+					fullWidth
+					/>}
+				/>
+				<Typography variant="caption" color="error">{errors.email?.message}</Typography>
+				<Controller
+					name="emailConfirmation"
+					control={control}
+					render={({ field }) => <TextField
+					{...field}
+					margin="dense"
+					data-testid="email-confirmation"
+					placeholder="Confirm Email Address"
+					id="name"
+					label="Confirm Email Address"
+					type="email"
+					fullWidth
+					/>}
+				/>
+				<div className={classes.bottomError}>
+					<Typography data-testid="confirmation-error" variant="caption" color="error">{errors.emailConfirmation?.message}</Typography>
+					<Typography data-testid="server-error" variant="caption" color="error">{serverError}</Typography>
+				</div>
+				</DialogContent>
+					<DialogActions>
+						<Button data-testid="send-invite" onClick={handleSubmit(onSubmit)} color="primary">
+							Send
+						</Button>
 
-							<GridListTileBar
-								title={tile.Title}
-								actionIcon={
-									<IconButton
-										aria-label={`info about ${tile.Title}`}
-										className={classes.icon}
-									>
-										<InfoIcon />
-									</IconButton>
-								}
-							/>
-						</GridListTile>
-					))}
-			</GridList>
-			<Snackbar
-				open={selectedMovieCount > 0}
-				autoHideDuration={6000}
-				onClose={handleClose}
-				message={`You have selected ${selectedMovieCount} movies.`}
-				action={
-					<Button
-						color="secondary"
-						size="small"
-						onClick={() => {
-							let selectedMovieArray: Movie[] = [];
-							Object.keys(selectedMovies).forEach(
-								(key: string) => {
-									if (selectedMovies[key] !== undefined) {
-										selectedMovieArray.push(
-											selectedMovies[key]
-										);
-										setSelectedMovies([]);
-									}
-								}
-							);
-							cartActions.addToCart(selectedMovieArray);
-						}}
-					>
-						Add to cart
-					</Button>
-				}
-			></Snackbar>
-		</div>
-	);
+					</DialogActions>
+				</>)}
+				{showSuccessMessage && (
+					<>
+						<DialogTitle data-testid="all-done" id="form-dialog-title">All done!</DialogTitle>
+						<DialogContent>
+					    	<Typography>You will be the first to find out when Broccoli and co. launches</Typography>
+						</DialogContent>
+						<DialogActions>
+						<Button onClick={handleClose} color="primary">
+							Ok
+						</Button>
+						</DialogActions>
+					</>
+				)}
+				</Dialog>
+				</div>
+				</form>
+    )
 }
 
 const useStyles = makeStyles((theme: Theme) => ({
 	root: {
-		display: "flex",
-		flexWrap: "wrap",
-		justifyContent: "space-around",
-		overflow: "hidden",
-		backgroundColor: theme.palette.background.paper,
-	},
-	imageContainer: {
-		"&:hover": {
-			opacity: 0.5,
-			border: "5px solid blue;",
-		},
-	},
-	selectedImageContainer: {
-		border: `5px solid ${theme.palette.success.main};`,
-	},
-	selectedGrid: {},
-	gridList: {
-		width: 1000,
-		height: "90vh",
-	},
-	search: {
-		position: "relative",
-		borderRadius: theme.shape.borderRadius,
-		backgroundColor: fade(theme.palette.common.white, 0.15),
-		"&:hover": {
-			backgroundColor: fade(theme.palette.common.white, 0.25),
-		},
-		marginRight: theme.spacing(2),
-		marginLeft: 0,
-		marginBottom: 12,
-		width: "100%",
-		[theme.breakpoints.up("sm")]: {
-			marginLeft: theme.spacing(3),
-			width: "auto",
-		},
-	},
-	icon: {
-		color: "rgba(255, 255, 255, 0.54)",
-	},
-	searchIcon: {
-		padding: theme.spacing(0, 2),
-		height: "100%",
-		position: "absolute",
-		pointerEvents: "none",
-		display: "flex",
-		alignItems: "center",
+		height: '100vh',
+		flexDirection: "column",
 		justifyContent: "center",
+		alignItems: "center",
+		backgroundColor: 'transparent',
 	},
-	inputInput: {
-		padding: theme.spacing(1, 1, 1, 0),
-		// vertical padding + font size from searchIcon
-		paddingLeft: `calc(1em + ${theme.spacing(4)}px)`,
-		transition: theme.transitions.create("width"),
-		width: "100%",
-		[theme.breakpoints.up("md")]: {
-			width: "20ch",
-		},
+	video: {
+		zIndex: -1,
+		opacity: 0.4,
+		position: 'absolute',
+		height: '100vh',
+		width: '100%',
+		backgroundImage: `url(${"https://wallpapercave.com/wp/wp1934179.jpg"})`
 	},
-	inputRoot: {
-		color: "inherit",
+	bottomError: {
+		display: "flex",
+		flexDirection: 'column',
 	},
-	button: {
-		marginTop: 20,
+	body: {
+		display: "flex",
+		flex: 1,
+		height: '100%',
+		flexDirection: 'column',
+		justifyContent: "center",
+		alignItems: "center",
 	},
+	title: {
+		textAlign: "center",
+	},
+	inviteButton: {
+		marginTop: theme.spacing(4)
+	}
 }));

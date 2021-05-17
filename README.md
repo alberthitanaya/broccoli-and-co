@@ -1,5 +1,5 @@
-# Omdb checkout sample
-
-Based on https://github.com/innFactory/create-react-app-material-typescript-redux
+# Broccoli and Co.
 
 yarn install && yarn start
+
+to run tests, yarn test

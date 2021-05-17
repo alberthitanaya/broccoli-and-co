@@ -1,2 +1,1 @@
-export * from "./CheckedOutPage";
-export * from "./HomePage";
+export * from "./HomePageContainer";
